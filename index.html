@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Tesla Parking Sim</title>
+    <style>
+        :root {
+            /* 色盘 */
+            --bg-dark: #0a0a0a;
+            --panel-dark: #161616;
+            --text-primary: #ffffff;
+            --text-secondary: #8e8e93;
+            --accent-blue: #0A84FF;
+            --accent-orange: #FF9F0A;
+            --tesla-red: #E82127;
+            
+            /* UI 变量 */
+            --sidebar-width: 320px; /* 加宽以防折行 */
+            --border-radius: 20px;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", "Microsoft YaHei", sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- 布局 --- */
+        #app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 1. 左侧悬浮工具栏 */
+        #sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width); /* 强制固定宽度 */
+            background-color: var(--panel-dark);
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+            box-sizing: border-box;
+            justify-content: space-between;
+            z-index: 20;
+            box-shadow: 20px 0 50px rgba(0,0,0,0.6); 
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* 状态卡片 */
+        .status-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.03);
+            margin-bottom: 20px;
+        }
+        .status-title {
+            font-size: 11px; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 2px;
+            margin-bottom: 8px;
+            white-space: nowrap; /* 防止折行 */
+        }
+        .status-value {
+            font-size: 15px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            white-space: nowrap; /* 防止折行 */
+        }
+        .dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+
+        /* 中间操作区 */
+        #dynamic-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* 顶部对齐，配合 grid */
+            padding-top: 20px;
+            gap: 20px;
+        }
+
+        /* 工具按钮 Grid 布局 (2x2) */
+        .tool-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; /* 强制两列 */
+            gap: 12px;
+            width: 100%;
+        }
+        
+        .tool-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.03);
+            color: var(--text-primary);
+            height: 90px; /* 方块状按钮 */
+            padding: 10px;
+            border-radius: var(--border-radius);
+            font-size: 14px; font-weight: 500;
+            cursor: pointer;
+            display: flex; 
+            flex-direction: column; /* 垂直排列 */
+            align-items: center; 
+            justify-content: center; 
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.12); transform: scale(1.02); }
+        .tool-btn:active { transform: scale(0.98); }
+        
+        /* 自定义 Plus 圆圈图标 */
+        .plus-icon {
+            width: 24px;
+            height: 24px;
+            border: 1.5px solid rgba(255,255,255,0.9);
+            border-radius: 50%;
+            position: relative;
+            margin-bottom: 2px;
+        }
+        .plus-icon::before, .plus-icon::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.9);
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .plus-icon::before { width: 10px; height: 1.5px; } /* 横线 */
+        .plus-icon::after { width: 1.5px; height: 10px; } /* 竖线 */
+
+        /* 垃圾桶图标特殊处理 */
+        .trash-icon { font-size: 20px; margin-bottom: 4px; }
+
+        /* 按钮内文案样式 */
+        .btn-text-cn { font-size: 13px; font-weight: 600; }
+        .btn-text-en { font-size: 11px; color: rgba(255,255,255,0.4); font-weight: 400; }
+
+        .btn-clear { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.1); }
+        .btn-clear:hover { background: rgba(255, 107, 107, 0.1); }
+        .btn-clear .btn-text-en { color: rgba(255, 107, 107, 0.5); }
+        .btn-clear .plus-icon { border-color: #ff6b6b; } /* 假如清空也要圆圈，或者用垃圾桶 */
+
+        /* 说明文案区 */
+        .hint-block {
+            margin-top: 25px;
+            padding: 0 5px; opacity: 0.7;
+            font-size: 13px; line-height: 2; color: var(--text-secondary);
+        }
+        .hint-title {
+            color: var(--text-primary); font-weight: 600; font-size: 14px; margin-bottom: 5px; display: block;
+        }
+        .key-badge {
+            border: 1px solid rgba(255,255,255,0.3); padding: 2px 6px; 
+            border-radius: 6px; font-size: 11px;
+        }
+
+        /* 仪表盘 (驾驶模式) */
+        #panel-dashboard { display: none; text-align: center; margin-top: 40px;}
+        .gear-row { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; }
+        .gear { font-size: 20px; font-weight: 700; color: #444; transition: 0.3s; }
+        .gear.active { color: #fff; transform: scale(1.2); text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        .speed-large { font-size: 72px; font-weight: 100; line-height: 1; letter-spacing: -2px; }
+        .speed-unit { font-size: 14px; color: #666; margin-top: 5px; }
+
+        /* 底部主按钮 */
+        .main-action-area { margin-top: auto; }
+        .main-btn {
+            width: 100%; height: 60px;
+            border-radius: var(--border-radius);
+            border: none; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s;
+        }
+        .btn-mode-edit { background: var(--accent-blue); color: white; box-shadow: 0 10px 30px rgba(10, 132, 255, 0.3); }
+        .btn-mode-edit:hover { background: #0071db; transform: translateY(-2px); }
+        
+        .btn-mode-drive { 
+            background: rgba(232, 33, 39, 0.1); 
+            border: 1px solid rgba(232, 33, 39, 0.3);
+            color: var(--tesla-red); 
+        }
+        .btn-mode-drive:hover { background: rgba(232, 33, 39, 0.2); }
+
+        /* 2. 右侧画布 */
+        #canvas-area {
+            flex: 1;
+            position: relative;
+            background-color: #050505;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        canvas {
+            background-color: #111;
+            border-radius: 4px;
+            box-shadow: 0 0 80px rgba(0,0,0,0.5);
+        }
+
+        /* 碰撞红光 (呼吸灯效果) */
+        #crash-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s;
+            /* 四周红色晕影 */
+            background: radial-gradient(circle, transparent 50%, rgba(232, 33, 39, 0.6) 100%);
+            z-index: 50;
+        }
+        /* 呼吸动画 class */
+        #crash-overlay.active {
+            animation: breathe 1.5s infinite ease-in-out;
+            opacity: 1;
+        }
+
+        @keyframes breathe {
+            0% { opacity: 0.6; box-shadow: inset 0 0 50px rgba(232,33,39,0.2); }
+            50% { opacity: 1; box-shadow: inset 0 0 150px rgba(232,33,39,0.8); }
+            100% { opacity: 0.6; box-shadow: inset 0 0 50px rgba(232,33,39,0.2); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <div id="sidebar">
+            <div class="status-card">
+                <div class="status-title">System Status</div>
+                <div class="status-value" id="status-display">
+                    <div class="dot" style="background:var(--accent-orange)"></div>
+                    <span style="color:var(--accent-orange)">编辑地图 Edit Mode</span>
+                </div>
+            </div>
+
+            <div id="dynamic-panel">
+                
+                <div id="panel-tools" class="tool-grid">
+                    <button class="tool-btn" onclick="addObject('spot')">
+                        <div class="plus-icon"></div>
+                        <div><div class="btn-text-cn">添加车位</div><div class="btn-text-en">Spot</div></div>
+                    </button>
+                    <button class="tool-btn" onclick="addObject('obstacle_car')">
+                        <div class="plus-icon"></div>
+                        <div><div class="btn-text-cn">添加车辆</div><div class="btn-text-en">Car</div></div>
+                    </button>
+                    <button class="tool-btn" onclick="addObject('wall')">
+                        <div class="plus-icon"></div>
+                        <div><div class="btn-text-cn">添加墙体</div><div class="btn-text-en">Wall</div></div>
+                    </button>
+                    <button class="tool-btn btn-clear" onclick="resetScene()">
+                        <div class="trash-icon">🗑️</div>
+                        <div><div class="btn-text-cn">清空地图</div><div class="btn-text-en">Clear</div></div>
+                    </button>
+                </div>
+                
+                <div id="hint-edit" class="hint-block">
+                    <span class="hint-title">编辑你的停车地图</span>
+                    - 双击物体旋转 90°<br>
+                    - 鼠标拖拽调整物体位置
+                </div>
+
+                <div id="panel-dashboard">
+                    <div class="gear-row">
+                        <span id="gear-r" class="gear">R</span>
+                        <span id="gear-n" class="gear">N</span>
+                        <span id="gear-d" class="gear">D</span>
+                    </div>
+                    <div class="speed-large"><span id="speed">0</span></div>
+                    <div class="speed-unit">km/h</div>
+                    
+                    <div class="hint-block" style="text-align: left; margin-top:30px">
+                        <span class="hint-title">驾驶操作</span>
+                        - 使用方向键控制车辆<br>
+                        - <span class="key-badge">Space</span> 自动回正方向
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-action-area">
+                <button id="main-btn" class="main-btn btn-mode-edit" onclick="toggleMode()">开始驾驶 Start</button>
+            </div>
+        </div>
+
+        <div id="canvas-area">
+            <div id="crash-overlay"></div>
+            <canvas id="gameCanvas" width="1100" height="900"></canvas>
+        </div>
+
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Refs
+    const statusDisplay = document.getElementById('status-display');
+    const panelTools = document.getElementById('panel-tools');
+    const hintEdit = document.getElementById('hint-edit'); // 编辑文案
+    const panelDashboard = document.getElementById('panel-dashboard');
+    const mainBtn = document.getElementById('main-btn');
+    const crashOverlay = document.getElementById('crash-overlay');
+
+    const SCALE = 22; 
+    let MODE = 'EDIT'; 
+    let isColliding = false; 
+
+    // Car Colors (Red, Blue, Grey Only)
+    const CAR_COLORS = [
+        { hex: '#444444', name: 'Midnight Silver' }, // 灰
+        { hex: '#001e4d', name: 'Deep Blue' },       // 蓝
+        { hex: '#8a0b14', name: 'Red' }              // 红
+    ];
+
+    // Objects
+    const car = {
+        type: 'player',
+        x: 550, y: 450,
+        length: 4.72 * SCALE, width: 1.85 * SCALE, mirrorGap: 0.12 * SCALE, wheelBase: 2.875 * SCALE,
+        angle: -Math.PI / 2, 
+        speed: 0, maxSpeed: 2.5, acceleration: 0.04, friction: 0.92,
+        steeringAngle: 0, maxSteeringAngle: 0.61, steeringSpeed: 0.02,
+        color: '#ffffff' // Pure White
+    };
+
+    let objects = [ { type: 'spot', x: 350, y: 250, width: 2.5 * SCALE, height: 5.3 * SCALE, angle: 0 } ];
+    const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, Space: false };
+
+    // --- Interaction ---
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
+    function getDistance(x1, y1, x2, y2) { return Math.sqrt((x2-x1)**2 + (y2-y1)**2); }
+
+    let isDragging = false; let dragTarget = null; let dragOffset = { x: 0, y: 0 };
+
+    function isPointInObj(x, y, obj) {
+        const padding = 30; 
+        let cx = obj.x; let cy = obj.y; let w, h;
+        if (obj.type === 'spot') { cx = obj.x + obj.width/2; cy = obj.y + obj.height/2; w = obj.width; h = obj.height; } 
+        else {
+            if (obj.type === 'player' || obj.type === 'obstacle_car') { w = obj.length; h = obj.width; } 
+            else { w = obj.width; h = obj.height; }
+        }
+        let halfSize = Math.max(w, h) / 2 + padding; 
+        return x > cx - halfSize && x < cx + halfSize && y > cy - halfSize && y < cy + halfSize;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (MODE !== 'EDIT') return;
+        const m = getMousePos(e);
+        let candidates = [];
+        if (isPointInObj(m.x, m.y, car)) candidates.push({ obj: car, dist: getDistance(m.x, m.y, car.x, car.y) });
+        for (let obj of objects) {
+            let cx = obj.x; let cy = obj.y; if (obj.type === 'spot') { cx = obj.x + obj.width/2; cy = obj.y + obj.height/2; }
+            if (isPointInObj(m.x, m.y, obj)) candidates.push({ obj: obj, dist: getDistance(m.x, m.y, cx, cy) });
+        }
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => a.dist - b.dist);
+            isDragging = true; dragTarget = candidates[0].obj;
+            dragOffset = { x: m.x - dragTarget.x, y: m.y - dragTarget.y };
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging || MODE !== 'EDIT' || !dragTarget) return;
+        const m = getMousePos(e);
+        dragTarget.x = m.x - dragOffset.x; dragTarget.y = m.y - dragOffset.y;
+    });
+
+    canvas.addEventListener('mouseup', () => { isDragging = false; dragTarget = null; });
+
+    canvas.addEventListener('dblclick', (e) => {
+        if (MODE !== 'EDIT') return;
+        const m = getMousePos(e);
+        let candidates = [];
+        if (isPointInObj(m.x, m.y, car)) candidates.push({obj:car, dist: getDistance(m.x,m.y,car.x,car.y)});
+        for (let obj of objects) {
+            let cx = obj.x; let cy = obj.y; if(obj.type==='spot'){cx+=obj.width/2; cy+=obj.height/2;}
+            if (isPointInObj(m.x, m.y, obj)) candidates.push({obj:obj, dist: getDistance(m.x,m.y,cx,cy)});
+        }
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => a.dist - b.dist);
+            let obj = candidates[0].obj;
+            if (obj.type === 'spot') { let temp = obj.width; obj.width = obj.height; obj.height = temp; } 
+            else { obj.angle += Math.PI / 2; }
+        }
+    });
+
+    document.addEventListener('keydown', (e) => { 
+        if(e.code === 'Space') { e.preventDefault(); keys.Space = true; }
+        if(keys.hasOwnProperty(e.code)) keys[e.code] = true; 
+    });
+    document.addEventListener('keyup', (e) => { 
+        if(e.code === 'Space') keys.Space = false; 
+        if(keys.hasOwnProperty(e.code)) keys[e.code] = false; 
+    });
+
+    // --- Logic ---
+    function toggleMode() {
+        mainBtn.blur();
+        if (MODE === 'EDIT') {
+            MODE = 'DRIVE';
+            statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-blue)"></div><span style="color:var(--accent-blue)">驾驶模式 Driving</span>`;
+            
+            // 隐藏编辑工具和编辑文案
+            panelTools.style.display = 'none';
+            hintEdit.style.display = 'none';
+
+            // 显示仪表盘
+            panelDashboard.style.display = 'block';
+            
+            mainBtn.innerText = "编辑地图 Edit Map";
+            mainBtn.className = "main-btn btn-mode-drive";
+            canvas.style.cursor = 'crosshair';
+        } else {
+            MODE = 'EDIT';
+            statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-orange)"></div><span style="color:var(--accent-orange)">编辑地图 Edit Mode</span>`;
+            
+            // 显示编辑工具和编辑文案，使用 grid 布局
+            panelTools.style.display = 'grid';
+            hintEdit.style.display = 'block';
+
+            // 隐藏仪表盘
+            panelDashboard.style.display = 'none';
+
+            mainBtn.innerText = "开始驾驶 Start";
+            mainBtn.className = "main-btn btn-mode-edit";
+            canvas.style.cursor = 'default';
+            car.speed = 0; car.steeringAngle = 0; 
+            isColliding = false; 
+            crashOverlay.classList.remove('active');
+        }
+    }
+
+    function addObject(type) {
+        mainBtn.blur();
+        let offX = (Math.random() - 0.5) * 60; let offY = (Math.random() - 0.5) * 60;
+        if(type === 'wall') {
+            objects.push({ type: 'wall', x: 550+offX, y: 450+offY, width: 10 * SCALE, height: 0.6 * SCALE, angle: 0 });
+        } else if (type === 'obstacle_car') {
+            let color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)].hex;
+            objects.push({ type: 'obstacle_car', x: 550+offX, y: 450+offY, length: 4.72 * SCALE, width: 1.85 * SCALE, angle: -Math.PI/2, color: color });
+        } else if (type === 'spot') {
+            objects.push({ type: 'spot', x: 550+offX, y: 450+offY, width: 2.5 * SCALE, height: 5.3 * SCALE, angle: 0 });
+        }
+    }
+    
+    function resetScene() { mainBtn.blur(); objects = []; addObject('spot'); }
+
+    // --- Physics ---
+    function getRectCorners(obj) {
+        let cx = obj.x; let cy = obj.y; let ang = obj.angle || 0;
+        if (obj.type === 'spot') { cx = obj.x + obj.width/2; cy = obj.y + obj.height/2; }
+        let hw, hh;
+        if (obj.type === 'player' || obj.type === 'obstacle_car') { hw = obj.length/2; hh = obj.width/2; } else { hw = obj.width/2; hh = obj.height/2; }
+        let cos = Math.cos(ang); let sin = Math.sin(ang);
+        return [ { x: cx + hw*cos - hh*sin, y: cy + hw*sin + hh*cos }, { x: cx - hw*cos - hh*sin, y: cy - hw*sin + hh*cos }, { x: cx - hw*cos + hh*sin, y: cy - hw*sin - hh*cos }, { x: cx + hw*cos + hh*sin, y: cy + hw*sin - hh*cos } ];
+    }
+    function checkCollision(objA, objB) {
+        if (objB.type === 'spot') return false; 
+        const cornersA = getRectCorners(objA); const cornersB = getRectCorners(objB);
+        const polygons = [cornersA, cornersB];
+        for (let polygon of polygons) {
+            for (let i = 0; i < polygon.length; i++) {
+                const p1 = polygon[i]; const p2 = polygon[(i + 1) % polygon.length];
+                const normal = { x: p2.y - p1.y, y: p1.x - p2.x };
+                let minA = Infinity, maxA = -Infinity;
+                for (let p of cornersA) { const proj = normal.x * p.x + normal.y * p.y; if (proj < minA) minA = proj; if (proj > maxA) maxA = proj; }
+                let minB = Infinity, maxB = -Infinity;
+                for (let p of cornersB) { const proj = normal.x * p.x + normal.y * p.y; if (proj < minB) minB = proj; if (proj > maxB) maxB = proj; }
+                if (maxA < minB || maxB < minA) return false;
+            }
+        }
+        return true;
+    }
+    function updatePhysics() {
+        if (MODE !== 'DRIVE') return;
+        if (keys.Space) { car.steeringAngle *= 0.85; if (Math.abs(car.steeringAngle) < 0.005) car.steeringAngle = 0; } 
+        else { if (keys.ArrowLeft) car.steeringAngle -= car.steeringSpeed; if (keys.ArrowRight) car.steeringAngle += car.steeringSpeed; }
+        if (car.steeringAngle > car.maxSteeringAngle) car.steeringAngle = car.maxSteeringAngle;
+        if (car.steeringAngle < -car.maxSteeringAngle) car.steeringAngle = -car.maxSteeringAngle;
+        if (keys.ArrowUp) car.speed += car.acceleration; else if (keys.ArrowDown) car.speed -= car.acceleration; else car.speed *= car.friction;
+        if (car.speed > car.maxSpeed) car.speed = car.maxSpeed; if (car.speed < -car.maxSpeed) car.speed = -car.maxSpeed; if (Math.abs(car.speed) < 0.02) car.speed = 0;
+        
+        if (Math.abs(car.speed) > 0) {
+            car.x += Math.cos(car.angle) * car.speed; car.y += Math.sin(car.angle) * car.speed; car.angle += (car.speed * Math.tan(car.steeringAngle)) / car.wheelBase;
+            
+            let currentFrameCollision = false;
+            for (let obj of objects) { if (checkCollision(car, obj)) { currentFrameCollision = true; break; } }
+            
+            isColliding = currentFrameCollision;
+            if(isColliding) {
+                crashOverlay.classList.add('active'); // 激活呼吸灯
+            } else {
+                crashOverlay.classList.remove('active');
+            }
+        }
+    }
+
+    // --- Drawing ---
+
+    function drawStreamlinedBody(ctx, length, width, color) {
+        ctx.fillStyle = color;
+        const hw = length / 2; const hh = width / 2;
+        ctx.beginPath();
+        ctx.moveTo(-hw, -hh + 5); ctx.lineTo(-hw, hh - 5);
+        ctx.quadraticCurveTo(-hw, hh, -hw + 10, hh);
+        ctx.lineTo(hw - 15, hh);
+        ctx.quadraticCurveTo(hw, hh, hw, 0); 
+        ctx.quadraticCurveTo(hw, -hh, hw - 15, -hh); 
+        ctx.lineTo(-hw + 10, -hh);
+        ctx.quadraticCurveTo(-hw, -hh, -hw, -hh + 5);
+        ctx.fill();
+
+        let grad = ctx.createLinearGradient(-hw, -hh, -hw, hh);
+        grad.addColorStop(0, "rgba(255,255,255,0.05)");
+        grad.addColorStop(0.5, "rgba(255,255,255,0)");
+        grad.addColorStop(1, "rgba(0,0,0,0.1)");
+        ctx.fillStyle = grad; ctx.fill();
+    }
+
+    function drawGlassRoof(ctx, length, width) {
+        ctx.fillStyle = "#000000"; 
+        const hw = length / 2; const hh = width / 2;
+        const insetY = 4;
+        
+        // 前挡
+        ctx.beginPath();
+        ctx.moveTo(hw - 25, -hh + insetY); ctx.lineTo(hw - 25, hh - insetY);
+        ctx.lineTo(hw - 5, hh - 6); ctx.quadraticCurveTo(hw - 2, 0, hw - 5, -hh + 6);
+        ctx.fill();
+        
+        // 顶棚+后挡 (一体化)
+        ctx.beginPath();
+        ctx.roundRect(-hw + 15, -hh + 6, length - 55, width - 12, 4);
+        ctx.fill();
+    }
+
+    function drawCar(obj, isPlayer) {
+        ctx.save();
+        ctx.translate(obj.x, obj.y);
+        ctx.rotate(obj.angle);
+
+        // 阴影与聚光灯
+        if (isPlayer && MODE === 'DRIVE') {
+            // 驾驶模式主车：增强的白色光晕 (Blur 60, Opacity 0.6)
+            ctx.shadowColor = "rgba(255,255,255,0.6)";
+            ctx.shadowBlur = 60;
+        } else {
+            ctx.shadowColor = "rgba(0,0,0,0.6)";
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetY = 5;
+        }
+
+        drawStreamlinedBody(ctx, obj.length, obj.width, obj.color);
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; 
+        
+        drawGlassRoof(ctx, obj.length, obj.width);
+
+        // 后视镜
+        ctx.fillStyle = obj.color;
+        ctx.fillRect(obj.length/3.5, obj.width/2 - 2, 10, car.mirrorGap + 2);
+        ctx.fillRect(obj.length/3.5, -obj.width/2 - car.mirrorGap, 10, car.mirrorGap + 2);
+
+        // 车灯
+        ctx.fillStyle = "#e0e0e0";
+        ctx.beginPath(); ctx.ellipse(obj.length/2 - 6, -obj.width/2 + 4, 6, 2, Math.PI/4, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(obj.length/2 - 6, obj.width/2 - 4, 6, 2, -Math.PI/4, 0, 2*Math.PI); ctx.fill();
+        
+        let tailColor = (isPlayer && keys.ArrowDown) ? "#ff2200" : "#500";
+        ctx.fillStyle = tailColor;
+        ctx.fillRect(-obj.length/2, -obj.width/2 + 2, 3, 12); ctx.fillRect(-obj.length/2, obj.width/2 - 14, 3, 12);
+
+        // 轮胎逻辑
+        if (isPlayer) {
+            function drawWheel(x, y, isFront, angle) {
+                ctx.save(); ctx.translate(x, y); if (isFront) ctx.rotate(angle);
+                
+                if (isFront) {
+                    // 哑光深灰
+                    ctx.fillStyle = "#2a2a2a"; 
+                    ctx.beginPath(); ctx.roundRect(-10, -4, 20, 8, 3); ctx.fill();
+                    ctx.fillStyle = "#111"; ctx.fillRect(-4, -4, 8, 8);
+                }
+                ctx.restore();
+            }
+            let wx = car.wheelBase/2; let wy = car.width/2 - 3;
+            drawWheel(wx, wy, true, car.steeringAngle); 
+            drawWheel(wx, -wy, true, car.steeringAngle);
+        }
+
+        if (MODE === 'EDIT' && isDragging && dragTarget === obj) {
+            ctx.strokeStyle = "#0A84FF"; ctx.lineWidth = 2;
+            ctx.strokeRect(-obj.length/2 - 5, -obj.width/2 - 5, obj.length + 10, obj.width + 10);
+        }
+        ctx.restore();
+    }
+
+    function drawSpot(obj) {
+        ctx.save(); ctx.translate(obj.x, obj.y);
+        ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 3; 
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+        ctx.beginPath(); ctx.rect(0, 0, obj.width, obj.height); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "bold 28px Arial"; 
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("P", obj.width/2, obj.height/2);
+        if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#0A84FF"; ctx.strokeRect(-2,-2,obj.width+4,obj.height+4); }
+        ctx.restore();
+    }
+
+    function drawWall(obj) {
+        ctx.save(); ctx.translate(obj.x, obj.y); ctx.rotate(obj.angle);
+        const w = obj.width; const h = obj.height; const depth = 8;
+        ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 10;
+        ctx.fillStyle = "#333"; ctx.fillRect(-w/2, -h/2 + depth, w, h);
+        ctx.fillStyle = "#555"; ctx.fillRect(-w/2, -h/2, w, h);
+        ctx.shadowBlur = 0;
+        if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#0A84FF"; ctx.lineWidth=2; ctx.strokeRect(-w/2-2, -h/2-2, w+4, h+4); }
+        ctx.restore();
+    }
+
+    function drawPrediction(direction) {
+        if (MODE === 'EDIT') return; 
+        ctx.save(); 
+        if (direction === 1) { 
+            ctx.strokeStyle = "rgba(10, 132, 255, 0.6)"; ctx.shadowColor = "rgba(10, 132, 255, 0.8)"; ctx.setLineDash([10, 10]); 
+        } else { 
+            ctx.strokeStyle = "rgba(255, 214, 10, 0.8)"; ctx.shadowColor = "rgba(255, 214, 10, 1)"; ctx.setLineDash([]); 
+        }
+        ctx.lineWidth = 2; ctx.shadowBlur = 10;
+        let simX = car.x; let simY = car.y; let simAngle = car.angle;
+        let leftPath = []; let rightPath = []; let safeWidth = car.width + (car.mirrorGap * 2);
+        for (let i = 0; i < 90; i++) {
+            let simSpeed = 2.5 * direction; simX += Math.cos(simAngle) * simSpeed; simY += Math.sin(simAngle) * simSpeed; simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
+            let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
+            leftPath.push({x: simX + offsetX, y: simY + offsetY}); rightPath.push({x: simX - offsetX, y: simY - offsetY});
+        }
+        const drawLine = (path) => { ctx.beginPath(); if (path.length > 0) ctx.moveTo(path[0].x, path[0].y); for (let p of path) ctx.lineTo(p.x, p.y); ctx.stroke(); }
+        drawLine(leftPath); drawLine(rightPath); ctx.restore();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 网格
+        if (MODE === 'EDIT') {
+            ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 1; ctx.beginPath(); 
+            for (let i = 0; i < canvas.width; i += SCALE * 2) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); } 
+            for (let i = 0; i < canvas.height; i += SCALE * 2) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); } 
+            ctx.stroke(); ctx.restore();
+        }
+
+        for (let obj of objects) { if (obj.type === 'spot') drawSpot(obj); }
+        for (let obj of objects) { if (obj.type === 'wall') drawWall(obj); }
+        for (let obj of objects) { if (obj.type === 'obstacle_car') drawCar(obj, false); }
+        
+        if (Math.abs(car.speed) < 1.0) { drawPrediction(1); drawPrediction(-1); } else { drawPrediction(car.speed > 0 ? 1 : -1); }
+        
+        drawCar(car, true); 
+        
+        document.getElementById('speed').innerText = Math.abs(Math.round(car.speed * 10));
+        const r = document.getElementById('gear-r'); const n = document.getElementById('gear-n'); const d = document.getElementById('gear-d');
+        r.className = "gear"; n.className = "gear"; d.className = "gear";
+        if (car.speed < -0.1) r.className += " active"; else if (car.speed > 0.1) d.className += " active"; else n.className += " active";
+    }
+
+    function loop() { if (MODE === 'DRIVE') { updatePhysics(); } draw(); requestAnimationFrame(loop); }
+    loop();
+</script>
+</body>
+</html>
