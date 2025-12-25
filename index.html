@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>THE PARKING LAB - V15.0 (Laser Vision)</title>
+    <title>THE PARKING LAB - V15.0 (Audio Enabled)</title>
     <style>
         :root {
             /* 色盘 */
@@ -84,7 +84,7 @@
         /* 工具按钮 Grid */
         .tool-grid { 
             display: grid; 
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr; /* 强制两列 */
             gap: 12px; width: 100%;
         }
         
@@ -170,6 +170,9 @@
     </style>
 </head>
 <body>
+
+    <audio id="audio-bgm" src="BGM.mp3" loop></audio>
+    <audio id="audio-crash" src="Crash.mp3"></audio>
 
     <div id="mobile-blocker">
         <div class="mobile-icon">💻</div>
@@ -259,12 +262,20 @@
     const panelDashboard = document.getElementById('panel-dashboard');
     const mainBtn = document.getElementById('main-btn');
     const crashOverlay = document.getElementById('crash-overlay');
+    
+    // Audio Refs
+    const audioBgm = document.getElementById('audio-bgm');
+    const audioCrash = document.getElementById('audio-crash');
+    // 设置音量
+    audioBgm.volume = 0.4;
+    audioCrash.volume = 0.6;
 
     const SCALE = 22; 
     let MODE = 'EDIT'; 
     let isColliding = false; 
+    let wasColliding = false; // 用于防抖动音效
 
-    // Car Colors (No Black/White, High Contrast)
+    // Car Colors
     const CAR_COLORS = [ { hex: '#444444', name: 'Grey' }, { hex: '#001e4d', name: 'Blue' }, { hex: '#8a0b14', name: 'Red' } ];
 
     // Objects
@@ -331,23 +342,35 @@
         if (MODE === 'EDIT') {
             MODE = 'DRIVE';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-blue)"></div><span style="color:var(--accent-blue)">驾驶模式 Driving</span>`;
+            
             panelTools.style.display = 'none';
             hintEdit.style.display = 'none';
             panelDashboard.style.display = 'block';
+            
             mainBtn.innerText = "编辑地图 Edit Map";
             mainBtn.className = "main-btn btn-mode-drive";
             canvas.style.cursor = 'crosshair';
+            
+            // 播放 BGM
+            audioBgm.play().catch(e => console.log('Audio play failed', e));
         } else {
             MODE = 'EDIT';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-orange)"></div><span style="color:var(--accent-orange)">编辑地图 Edit Mode</span>`;
+            
+            // 关键修复：强制恢复 grid 布局
             panelTools.style.display = 'grid'; 
             hintEdit.style.display = 'block';
             panelDashboard.style.display = 'none';
+
             mainBtn.innerText = "开始驾驶 Start";
             mainBtn.className = "main-btn btn-mode-edit";
             canvas.style.cursor = 'default';
             car.speed = 0; car.steeringAngle = 0; isColliding = false; 
             crashOverlay.classList.remove('active');
+            
+            // 停止 BGM
+            audioBgm.pause();
+            audioBgm.currentTime = 0;
         }
     }
 
@@ -396,10 +419,20 @@
         if (car.steeringAngle < -car.maxSteeringAngle) car.steeringAngle = -car.maxSteeringAngle;
         if (keys.ArrowUp) car.speed += car.acceleration; else if (keys.ArrowDown) car.speed -= car.acceleration; else car.speed *= car.friction;
         if (car.speed > car.maxSpeed) car.speed = car.maxSpeed; if (car.speed < -car.maxSpeed) car.speed = -car.maxSpeed; if (Math.abs(car.speed) < 0.02) car.speed = 0;
+        
         if (Math.abs(car.speed) > 0) {
             car.x += Math.cos(car.angle) * car.speed; car.y += Math.sin(car.angle) * car.speed; car.angle += (car.speed * Math.tan(car.steeringAngle)) / car.wheelBase;
+            
             let currentFrameCollision = false;
             for (let obj of objects) { if (checkCollision(car, obj)) { currentFrameCollision = true; break; } }
+            
+            // 音效逻辑：只有当"从不撞变成撞"的瞬间才播放
+            if (currentFrameCollision && !wasColliding) {
+                audioCrash.currentTime = 0;
+                audioCrash.play().catch(e => console.log('Crash play failed', e));
+            }
+            wasColliding = currentFrameCollision; // 更新上一帧状态
+
             isColliding = currentFrameCollision;
             if(isColliding) crashOverlay.classList.add('active'); else crashOverlay.classList.remove('active');
         }
@@ -449,26 +482,15 @@
         ctx.restore();
     }
     
-    // --- New Laser Style Prediction ---
     function drawPrediction(direction) {
         if (MODE === 'EDIT') return; ctx.save(); 
         
-        // Laser settings
-        ctx.lineWidth = 3; 
-        ctx.lineCap = 'round';
-        // Remove dashes (Solid line)
-        ctx.setLineDash([]);
+        ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.setLineDash([]);
         
         if (direction === 1) { 
-            // Forward: Cyan / Ice Blue
-            ctx.strokeStyle = "rgba(0, 243, 255, 0.6)"; 
-            ctx.shadowColor = "rgba(0, 243, 255, 0.8)"; 
-            ctx.shadowBlur = 15;
+            ctx.strokeStyle = "rgba(0, 243, 255, 0.6)"; ctx.shadowColor = "rgba(0, 243, 255, 0.8)"; ctx.shadowBlur = 15;
         } else { 
-            // Reverse: Luminous Gold / Amber
-            ctx.strokeStyle = "rgba(255, 160, 0, 0.6)"; 
-            ctx.shadowColor = "rgba(255, 160, 0, 0.8)";
-            ctx.shadowBlur = 15;
+            ctx.strokeStyle = "rgba(255, 160, 0, 0.6)"; ctx.shadowColor = "rgba(255, 160, 0, 0.8)"; ctx.shadowBlur = 15;
         }
 
         let simX = car.x; let simY = car.y; let simAngle = car.angle; let leftPath = []; let rightPath = []; let safeWidth = car.width + (car.mirrorGap * 2);
