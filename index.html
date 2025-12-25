@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>THE PARKING LAB - V14.1 (Fixed Layout)</title>
+    <title>THE PARKING LAB - V15.0 (Laser Vision)</title>
     <style>
         :root {
             /* 色盘 */
@@ -81,10 +81,10 @@
             flex: 1; display: flex; flex-direction: column; justify-content: flex-start; padding-top: 10px; gap: 20px;
         }
 
-        /* 工具按钮 Grid (关键修复点) */
+        /* 工具按钮 Grid */
         .tool-grid { 
             display: grid; 
-            grid-template-columns: 1fr 1fr; /* 强制两列 */
+            grid-template-columns: 1fr 1fr;
             gap: 12px; width: 100%;
         }
         
@@ -264,7 +264,7 @@
     let MODE = 'EDIT'; 
     let isColliding = false; 
 
-    // Car Colors
+    // Car Colors (No Black/White, High Contrast)
     const CAR_COLORS = [ { hex: '#444444', name: 'Grey' }, { hex: '#001e4d', name: 'Blue' }, { hex: '#8a0b14', name: 'Red' } ];
 
     // Objects
@@ -325,29 +325,24 @@
     document.addEventListener('keydown', (e) => { if(e.code === 'Space') { e.preventDefault(); keys.Space = true; } if(keys.hasOwnProperty(e.code)) keys[e.code] = true; });
     document.addEventListener('keyup', (e) => { if(e.code === 'Space') keys.Space = false; if(keys.hasOwnProperty(e.code)) keys[e.code] = false; });
 
-    // --- Mode Logic (Bug Fix Here) ---
+    // --- Mode Logic ---
     function toggleMode() {
         mainBtn.blur();
         if (MODE === 'EDIT') {
             MODE = 'DRIVE';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-blue)"></div><span style="color:var(--accent-blue)">驾驶模式 Driving</span>`;
-            
             panelTools.style.display = 'none';
             hintEdit.style.display = 'none';
             panelDashboard.style.display = 'block';
-            
             mainBtn.innerText = "编辑地图 Edit Map";
             mainBtn.className = "main-btn btn-mode-drive";
             canvas.style.cursor = 'crosshair';
         } else {
             MODE = 'EDIT';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-orange)"></div><span style="color:var(--accent-orange)">编辑地图 Edit Mode</span>`;
-            
-            // 关键修复：强制恢复 grid 布局
             panelTools.style.display = 'grid'; 
             hintEdit.style.display = 'block';
             panelDashboard.style.display = 'none';
-
             mainBtn.innerText = "开始驾驶 Start";
             mainBtn.className = "main-btn btn-mode-edit";
             canvas.style.cursor = 'default';
@@ -453,11 +448,29 @@
         if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#0A84FF"; ctx.lineWidth=2; ctx.strokeRect(-w/2-2, -h/2-2, w+4, h+4); }
         ctx.restore();
     }
+    
+    // --- New Laser Style Prediction ---
     function drawPrediction(direction) {
         if (MODE === 'EDIT') return; ctx.save(); 
-        if (direction === 1) { ctx.strokeStyle = "rgba(10, 132, 255, 0.6)"; ctx.shadowColor = "rgba(10, 132, 255, 0.8)"; ctx.setLineDash([10, 10]); } 
-        else { ctx.strokeStyle = "rgba(255, 214, 10, 0.8)"; ctx.shadowColor = "rgba(255, 214, 10, 1)"; ctx.setLineDash([]); }
-        ctx.lineWidth = 2; ctx.shadowBlur = 10;
+        
+        // Laser settings
+        ctx.lineWidth = 3; 
+        ctx.lineCap = 'round';
+        // Remove dashes (Solid line)
+        ctx.setLineDash([]);
+        
+        if (direction === 1) { 
+            // Forward: Cyan / Ice Blue
+            ctx.strokeStyle = "rgba(0, 243, 255, 0.6)"; 
+            ctx.shadowColor = "rgba(0, 243, 255, 0.8)"; 
+            ctx.shadowBlur = 15;
+        } else { 
+            // Reverse: Luminous Gold / Amber
+            ctx.strokeStyle = "rgba(255, 160, 0, 0.6)"; 
+            ctx.shadowColor = "rgba(255, 160, 0, 0.8)";
+            ctx.shadowBlur = 15;
+        }
+
         let simX = car.x; let simY = car.y; let simAngle = car.angle; let leftPath = []; let rightPath = []; let safeWidth = car.width + (car.mirrorGap * 2);
         for (let i = 0; i < 90; i++) {
             let simSpeed = 2.5 * direction; simX += Math.cos(simAngle) * simSpeed; simY += Math.sin(simAngle) * simSpeed; simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
@@ -467,6 +480,7 @@
         const drawLine = (path) => { ctx.beginPath(); if (path.length > 0) ctx.moveTo(path[0].x, path[0].y); for (let p of path) ctx.lineTo(p.x, p.y); ctx.stroke(); }
         drawLine(leftPath); drawLine(rightPath); ctx.restore();
     }
+
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (MODE === 'EDIT') {
