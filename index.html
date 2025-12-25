@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>THE PARKING LAB - V15.0 (Audio Enabled)</title>
+    <title>THE PARKING LAB - V15.1 (Audio Fix)</title>
     <style>
         :root {
             /* 色盘 */
@@ -17,6 +17,7 @@
             /* UI 变量 */
             --sidebar-width: 320px;
             --border-radius: 20px;
+            --btn-height: 54px;
         }
 
         body {
@@ -154,7 +155,7 @@
         #canvas-area { flex: 1; position: relative; background-color: #050505; display: flex; align-items: center; justify-content: center; z-index: 1; }
         canvas { background-color: #111; border-radius: 4px; box-shadow: 0 0 80px rgba(0,0,0,0.5); }
 
-        /* 碰撞效果 */
+        /* 碰撞效果 (仅保留光晕) */
         #crash-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; opacity: 0; transition: opacity 0.3s;
@@ -171,8 +172,8 @@
 </head>
 <body>
 
-    <audio id="audio-bgm" src="BGM.mp3" loop></audio>
-    <audio id="audio-crash" src="Crash.mp3"></audio>
+    <audio id="audio-bgm" src="BGM.mp3" loop preload="auto"></audio>
+    <audio id="audio-crash" src="Crash.mp3" preload="auto"></audio>
 
     <div id="mobile-blocker">
         <div class="mobile-icon">💻</div>
@@ -266,14 +267,13 @@
     // Audio Refs
     const audioBgm = document.getElementById('audio-bgm');
     const audioCrash = document.getElementById('audio-crash');
-    // 设置音量
     audioBgm.volume = 0.4;
     audioCrash.volume = 0.6;
 
     const SCALE = 22; 
     let MODE = 'EDIT'; 
     let isColliding = false; 
-    let wasColliding = false; // 用于防抖动音效
+    let wasColliding = false;
 
     // Car Colors
     const CAR_COLORS = [ { hex: '#444444', name: 'Grey' }, { hex: '#001e4d', name: 'Blue' }, { hex: '#8a0b14', name: 'Red' } ];
@@ -351,13 +351,12 @@
             mainBtn.className = "main-btn btn-mode-drive";
             canvas.style.cursor = 'crosshair';
             
-            // 播放 BGM
             audioBgm.play().catch(e => console.log('Audio play failed', e));
         } else {
             MODE = 'EDIT';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--accent-orange)"></div><span style="color:var(--accent-orange)">编辑地图 Edit Mode</span>`;
             
-            // 关键修复：强制恢复 grid 布局
+            // 强制恢复 grid
             panelTools.style.display = 'grid'; 
             hintEdit.style.display = 'block';
             panelDashboard.style.display = 'none';
@@ -368,9 +367,7 @@
             car.speed = 0; car.steeringAngle = 0; isColliding = false; 
             crashOverlay.classList.remove('active');
             
-            // 停止 BGM
-            audioBgm.pause();
-            audioBgm.currentTime = 0;
+            audioBgm.pause(); audioBgm.currentTime = 0;
         }
     }
 
@@ -426,12 +423,11 @@
             let currentFrameCollision = false;
             for (let obj of objects) { if (checkCollision(car, obj)) { currentFrameCollision = true; break; } }
             
-            // 音效逻辑：只有当"从不撞变成撞"的瞬间才播放
             if (currentFrameCollision && !wasColliding) {
                 audioCrash.currentTime = 0;
                 audioCrash.play().catch(e => console.log('Crash play failed', e));
             }
-            wasColliding = currentFrameCollision; // 更新上一帧状态
+            wasColliding = currentFrameCollision; 
 
             isColliding = currentFrameCollision;
             if(isColliding) crashOverlay.classList.add('active'); else crashOverlay.classList.remove('active');
