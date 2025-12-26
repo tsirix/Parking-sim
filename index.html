@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>THE PARKING LAB - V16.2 (Perfect Flow)</title>
+    <title>THE PARKING LAB - V16.3 (Final Tuned)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -264,7 +264,7 @@
                 </div>
                 
                 <div id="hint-edit" class="hint-block">
-                    <span class="hint-title">EDIT PROTOCOLS</span>
+                    <span class="hint-title">编辑你的停车地图</span>
                     - 双击物体旋转 90°<br>
                     - 鼠标拖拽调整物体位置
                 </div>
@@ -279,7 +279,7 @@
                     <div class="speed-unit">KM/H</div>
                     
                     <div class="hint-block" style="text-align: left; margin-top:30px">
-                        <span class="hint-title">DRIVE PROTOCOLS</span>
+                        <span class="hint-title">驾驶操作</span>
                         - 使用键盘方向键控制车辆<br>
                         - 按下 <span class="key-badge">Space</span> 自动回正方向
                     </div>
@@ -333,10 +333,10 @@
         type: 'player', x: 550, y: 450, length: 4.72 * SCALE, width: 1.85 * SCALE, mirrorGap: 0.12 * SCALE, wheelBase: 2.875 * SCALE,
         angle: -Math.PI / 2, 
         speed: 0, 
-        maxSpeed: 2.0, // Speed limit reduced
+        maxSpeed: 2.0,
         acceleration: 0.04, friction: 0.92,
         steeringAngle: 0, maxSteeringAngle: 0.61, 
-        steeringSpeed: 0.035, // Steering faster
+        steeringSpeed: 0.035,
         color: '#ffffff'
     };
 
@@ -397,30 +397,24 @@
         if (MODE === 'EDIT') {
             MODE = 'DRIVE';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--neon-cyan); box-shadow:0 0 10px var(--neon-cyan)"></div><span style="color:var(--neon-cyan)">DRIVING</span>`;
-            
             panelTools.style.display = 'none';
             hintEdit.style.display = 'none';
             panelDashboard.style.display = 'block';
-            
             mainBtn.innerText = "ABORT / EDIT";
             mainBtn.className = "main-btn btn-mode-drive";
             canvas.style.cursor = 'crosshair';
-            
             audioBgm.play().catch(e => console.log('Audio play failed', e));
         } else {
             MODE = 'EDIT';
             statusDisplay.innerHTML = `<div class="dot" style="background:var(--neon-orange); box-shadow:0 0 10px var(--neon-orange)"></div><span style="color:var(--neon-orange)">EDIT MODE</span>`;
-            
             panelTools.style.display = 'grid'; 
             hintEdit.style.display = 'block';
             panelDashboard.style.display = 'none';
-
             mainBtn.innerText = "INITIALIZE";
             mainBtn.className = "main-btn btn-mode-edit";
             canvas.style.cursor = 'default';
             car.speed = 0; car.steeringAngle = 0; isColliding = false; 
             crashOverlay.classList.remove('active');
-            
             audioBgm.pause(); audioBgm.currentTime = 0;
         }
     }
@@ -462,50 +456,33 @@
         }
         return true;
     }
-    
-    // Physics with Border Check
     function updatePhysics() {
         if (MODE !== 'DRIVE') return;
         if (keys.Space) { car.steeringAngle *= 0.85; if (Math.abs(car.steeringAngle) < 0.005) car.steeringAngle = 0; } 
         else { if (keys.ArrowLeft) car.steeringAngle -= car.steeringSpeed; if (keys.ArrowRight) car.steeringAngle += car.steeringSpeed; }
-        
         if (car.steeringAngle > car.maxSteeringAngle) car.steeringAngle = car.maxSteeringAngle;
         if (car.steeringAngle < -car.maxSteeringAngle) car.steeringAngle = -car.maxSteeringAngle;
-        
         if (keys.ArrowUp) car.speed += car.acceleration; else if (keys.ArrowDown) car.speed -= car.acceleration; else car.speed *= car.friction;
         if (car.speed > car.maxSpeed) car.speed = car.maxSpeed; if (car.speed < -car.maxSpeed) car.speed = -car.maxSpeed; if (Math.abs(car.speed) < 0.02) car.speed = 0;
         
         if (Math.abs(car.speed) > 0) {
             let nextX = car.x + Math.cos(car.angle) * car.speed;
             let nextY = car.y + Math.sin(car.angle) * car.speed;
-            
-            // Border collision
             let hitBorder = false;
-            if (nextX < 20 || nextX > canvas.width - 20 || nextY < 20 || nextY > canvas.height - 20) {
-                hitBorder = true; car.speed = 0;
-            } else {
-                car.x = nextX; car.y = nextY;
-            }
-            
+            if (nextX < 20 || nextX > canvas.width - 20 || nextY < 20 || nextY > canvas.height - 20) { hitBorder = true; car.speed = 0; } 
+            else { car.x = nextX; car.y = nextY; }
             car.angle += (car.speed * Math.tan(car.steeringAngle)) / car.wheelBase;
-            
             let currentFrameCollision = false;
             for (let obj of objects) { if (checkCollision(car, obj)) { currentFrameCollision = true; break; } }
             if (hitBorder) currentFrameCollision = true;
-            
-            if (currentFrameCollision && !wasColliding) {
-                audioCrash.currentTime = 0;
-                audioCrash.play().catch(e => console.log('Crash play failed', e));
-            }
+            if (currentFrameCollision && !wasColliding) { audioCrash.currentTime = 0; audioCrash.play().catch(e => console.log('Crash play failed', e)); }
             wasColliding = currentFrameCollision; 
-
             isColliding = currentFrameCollision;
             if(isColliding) crashOverlay.classList.add('active'); else crashOverlay.classList.remove('active');
         }
     }
 
     // --- RENDERER ---
-
     function drawStreamlinedBody(ctx, length, width, color) {
         ctx.fillStyle = color; const hw = length / 2; const hh = width / 2;
         ctx.beginPath(); ctx.moveTo(-hw, -hh + 5); ctx.lineTo(-hw, hh - 5); ctx.quadraticCurveTo(-hw, hh, -hw + 10, hh); ctx.lineTo(hw - 15, hh); ctx.quadraticCurveTo(hw, hh, hw, 0); ctx.quadraticCurveTo(hw, -hh, hw - 15, -hh); ctx.lineTo(-hw + 10, -hh); ctx.quadraticCurveTo(-hw, -hh, -hw, -hh + 5); ctx.fill();
@@ -528,7 +505,8 @@
         ctx.restore();
     }
     function drawSpot(obj) {
-        ctx.save(); ctx.translate(obj.x, obj.y); ctx.shadowColor = "#00F3FF"; ctx.shadowBlur = 10; ctx.strokeStyle = "rgba(0, 243, 255, 0.8)"; ctx.lineWidth = 2; ctx.fillStyle = "rgba(0, 243, 255, 0.05)"; ctx.beginPath(); ctx.rect(0, 0, obj.width, obj.height); ctx.fill(); ctx.stroke();
+        ctx.save(); ctx.translate(obj.x, obj.y);
+        ctx.shadowColor = "#00F3FF"; ctx.shadowBlur = 10; ctx.strokeStyle = "rgba(0, 243, 255, 0.8)"; ctx.lineWidth = 2; ctx.fillStyle = "rgba(0, 243, 255, 0.05)"; ctx.beginPath(); ctx.rect(0, 0, obj.width, obj.height); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "rgba(0, 243, 255, 0.8)"; ctx.font = "bold 28px 'Orbitron'"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("P", obj.width/2, obj.height/2); ctx.shadowBlur = 0;
         if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#FFF"; ctx.strokeRect(-2,-2,obj.width+4,obj.height+4); }
         ctx.restore();
@@ -541,103 +519,58 @@
         ctx.restore();
     }
     
-    // 优化的光流引导线 (Gradient + Gap Fix)
-    function drawPrediction() {
+    // 优化的光流引导线 (Reverted Logic, New Visuals)
+    function drawPrediction(direction) {
         if (MODE === 'EDIT') return; 
         
-        let showFront = false;
-        let showBack = false;
-
-        // Input-based visibility
-        if (keys.ArrowUp) { showFront = true; }
-        else if (keys.ArrowDown) { showBack = true; }
-        else if (keys.ArrowLeft || keys.ArrowRight) { showFront = true; showBack = true; } // Show both when steering
-
-        if (!showFront && !showBack) return; // Hide if idle
-
         ctx.save(); 
         
-        const directions = [];
-        if (showFront) directions.push(1);
-        if (showBack) directions.push(-1);
+        // Gap Fix: Start from car's origin relative to world
+        let simX = car.x; let simY = car.y; let simAngle = car.angle; 
+        let safeWidth = car.width + (car.mirrorGap * 2);
+        
+        // Length restored to 90
+        const STEPS = 90; 
+        let leftPath = []; let rightPath = []; 
 
-        // 统一颜色: Quantum White
         const ribbonColor = "255, 255, 255"; 
 
-        directions.forEach(direction => {
-            // Gap Fix: Start calculation from 0,0 relative to car
-            let simX = 0; let simY = 0; let simAngle = 0; 
-            let safeWidth = car.width + (car.mirrorGap * 2);
+        for (let i = 0; i < STEPS; i++) {
+            let simSpeed = 2.0 * direction; 
+            simX += Math.cos(simAngle) * simSpeed; 
+            simY += Math.sin(simAngle) * simSpeed; 
+            simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
             
-            // Reduced steps to match car length (~50)
-            const STEPS = 50; 
+            let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); 
+            let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
             
-            let leftPath = []; 
-            let rightPath = []; 
+            leftPath.push({x: simX + offsetX, y: simY + offsetY}); 
+            rightPath.push({x: simX - offsetX, y: simY - offsetY});
+        }
 
-            // Calculate path in local car space first
-            for (let i = 0; i < STEPS; i++) {
-                let simSpeed = 2.0 * direction; // Use current maxSpeed logic
-                simX += Math.cos(simAngle) * simSpeed; 
-                simY += Math.sin(simAngle) * simSpeed; 
-                simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
-                
-                let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); 
-                let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
-                
-                // Transform to world space
-                // But wait, the previous loop accumulated position. 
-                // Let's do it correctly: Accumulate position starting from car.x/y
-            }
-            
-            // Reset and do world space calc for gradient
-            simX = car.x; simY = car.y; simAngle = car.angle;
-            
-            for (let i = 0; i < STEPS; i++) {
-                // Determine opacity: 0.3 at start -> 0 at end
-                let alpha = 0.3 * (1 - i/STEPS);
-                
-                let simSpeed = 2.0 * direction; 
-                simX += Math.cos(simAngle) * simSpeed; 
-                simY += Math.sin(simAngle) * simSpeed; 
-                simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
-                
-                let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); 
-                let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
-                
-                leftPath.push({x: simX + offsetX, y: simY + offsetY}); 
-                rightPath.push({x: simX - offsetX, y: simY - offsetY});
-            }
+        // Gradient Glow
+        let lastP = leftPath[leftPath.length-1];
+        let grad = ctx.createLinearGradient(car.x, car.y, lastP.x, lastP.y);
+        grad.addColorStop(0, `rgba(${ribbonColor}, 0.3)`);
+        grad.addColorStop(1, `rgba(${ribbonColor}, 0)`);
 
-            // Draw Gradient Ribbon
-            // Since we can't easily gradient stroke a path, we simulate it by segmentation or mask.
-            // Or simpler: Create a linear gradient from Car center to the last point
-            let lastP = leftPath[leftPath.length-1];
-            let grad = ctx.createLinearGradient(car.x, car.y, lastP.x, lastP.y);
-            grad.addColorStop(0, `rgba(${ribbonColor}, 0.3)`);
-            grad.addColorStop(1, `rgba(${ribbonColor}, 0)`);
-
-            ctx.beginPath();
-            ctx.moveTo(leftPath[0].x, leftPath[0].y);
-            for(let p of leftPath) ctx.lineTo(p.x, p.y);
-            // Connect to right path (reverse)
-            for(let i = rightPath.length - 1; i >= 0; i--) ctx.lineTo(rightPath[i].x, rightPath[i].y);
-            ctx.closePath();
-            
-            ctx.fillStyle = grad;
-            ctx.shadowColor = `rgba(${ribbonColor}, 0.8)`; ctx.shadowBlur = 10;
-            ctx.fill();
-            
-            // Optional: Edge lines with same gradient
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(leftPath[0].x, leftPath[0].y); for(let p of leftPath) ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(rightPath[0].x, rightPath[0].y); for(let p of rightPath) ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-        });
+        ctx.beginPath();
+        ctx.moveTo(leftPath[0].x, leftPath[0].y);
+        for(let p of leftPath) ctx.lineTo(p.x, p.y);
+        for(let i = rightPath.length - 1; i >= 0; i--) ctx.lineTo(rightPath[i].x, rightPath[i].y);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.shadowColor = `rgba(${ribbonColor}, 0.8)`; ctx.shadowBlur = 10;
+        ctx.fill();
+        
+        // Edge lines
+        ctx.strokeStyle = grad; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(leftPath[0].x, leftPath[0].y); for(let p of leftPath) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(rightPath[0].x, rightPath[0].y); for(let p of rightPath) ctx.lineTo(p.x, p.y);
+        ctx.stroke();
 
         ctx.restore();
     }
@@ -653,7 +586,13 @@
         for (let obj of objects) { if (obj.type === 'wall') drawWall(obj); } 
         for (let obj of objects) { if (obj.type === 'obstacle_car') drawCar(obj, false); }
         
-        drawPrediction(); // New Logic inside
+        // Logic Reverted: Show based on speed
+        if (Math.abs(car.speed) < 1.0) {
+            drawPrediction(1); drawPrediction(-1);
+        } else {
+            drawPrediction(car.speed > 0 ? 1 : -1);
+        }
+        
         drawCar(car, true); 
         
         document.getElementById('speed').innerText = Math.abs(Math.round(car.speed * 10));
