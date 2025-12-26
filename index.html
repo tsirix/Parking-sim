@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>THE PARKING LAB - TRON V16.1</title>
+    <title>THE PARKING LAB - V16.2 (Perfect Flow)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -58,7 +58,6 @@
             display: flex; flex-direction: column;
             padding: 30px; box-sizing: border-box;
             justify-content: space-between; z-index: 20;
-            /* 优化：去掉实体右边框，改为发光阴影，消除重复线 */
             box-shadow: 10px 0 40px rgba(0, 243, 255, 0.05); 
             border-right: none; 
         }
@@ -142,13 +141,12 @@
         .btn-clear:hover { background: rgba(255, 0, 60, 0.1); border-color: var(--neon-red); box-shadow: 0 0 15px rgba(255,0,60,0.2); }
         .btn-clear .btn-text-en { color: rgba(255, 0, 60, 0.7); }
 
-        /* 文案 (优化：去掉左侧边框) */
+        /* 文案 */
         .hint-block {
             margin-top: 15px; padding: 12px; 
             background: rgba(255,255,255,0.03); border-radius: 8px;
             font-size: 12px; line-height: 1.8; color: var(--text-secondary);
             font-family: "Microsoft YaHei", sans-serif;
-            /* border-left Removed */
         }
         .hint-title { 
             color: var(--neon-cyan); font-weight: 700; font-size: 13px; margin-bottom: 5px; display: block; 
@@ -159,7 +157,7 @@
             border-radius: 4px; font-size: 10px; color: #fff;
         }
 
-        /* 全息仪表盘 */
+        /* 仪表盘 */
         #panel-dashboard { display: none; text-align: center; margin-top: 40px;}
         .gear-row { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; }
         .gear { font-size: 24px; font-weight: 700; color: #334; transition: 0.2s; }
@@ -182,7 +180,7 @@
         .btn-mode-drive:hover { background: rgba(255, 0, 60, 0.2); box-shadow: 0 0 25px rgba(255, 0, 60, 0.5); }
         .footer-copyright { margin-top: 20px; text-align: center; font-size: 10px; color: #445; letter-spacing: 1px; }
 
-        /* 右侧画布 (网格背景) */
+        /* 右侧画布 */
         #canvas-area { 
             flex: 1; position: relative; 
             background-color: #020204; 
@@ -191,13 +189,11 @@
                 linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
             background-size: 44px 44px; 
             display: flex; align-items: center; justify-content: center; z-index: 1; 
-            /* 优化：边缘光晕，增加层次感 */
             box-shadow: inset 10px 0 50px rgba(0,0,0,0.5); 
         }
         canvas { 
             background-color: rgba(0,0,0,0.5); 
             border-radius: 4px; 
-            /* 优化：数据边界效果 */
             border: 1px solid rgba(0, 243, 255, 0.3);
             box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
         }
@@ -207,7 +203,7 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; opacity: 0; transition: opacity 0.2s;
             background: radial-gradient(circle, transparent 40%, rgba(255, 0, 60, 0.5) 100%);
-            z-index: 50; border: 4px solid var(--neon-red);
+            z-index: 50; border: 2px solid var(--neon-red);
         }
         #crash-overlay.active { animation: glitch 0.2s infinite; opacity: 1; }
         @keyframes glitch {
@@ -325,7 +321,7 @@
     let isColliding = false; 
     let wasColliding = false;
 
-    // Car Colors (No White)
+    // Car Colors
     const CAR_COLORS = [ 
         { hex: '#555', name: 'Carbon' }, 
         { hex: '#0033cc', name: 'Neon Blue' }, 
@@ -337,10 +333,10 @@
         type: 'player', x: 550, y: 450, length: 4.72 * SCALE, width: 1.85 * SCALE, mirrorGap: 0.12 * SCALE, wheelBase: 2.875 * SCALE,
         angle: -Math.PI / 2, 
         speed: 0, 
-        maxSpeed: 2.0, // 优化：最高速度降低，方便微操
+        maxSpeed: 2.0, // Speed limit reduced
         acceleration: 0.04, friction: 0.92,
         steeringAngle: 0, maxSteeringAngle: 0.61, 
-        steeringSpeed: 0.035, // 优化：转向速度加快
+        steeringSpeed: 0.035, // Steering faster
         color: '#ffffff'
     };
 
@@ -467,17 +463,15 @@
         return true;
     }
     
-    // 物理引擎：增加边界检查
+    // Physics with Border Check
     function updatePhysics() {
         if (MODE !== 'DRIVE') return;
         if (keys.Space) { car.steeringAngle *= 0.85; if (Math.abs(car.steeringAngle) < 0.005) car.steeringAngle = 0; } 
         else { if (keys.ArrowLeft) car.steeringAngle -= car.steeringSpeed; if (keys.ArrowRight) car.steeringAngle += car.steeringSpeed; }
         
-        // Clamp steering
         if (car.steeringAngle > car.maxSteeringAngle) car.steeringAngle = car.maxSteeringAngle;
         if (car.steeringAngle < -car.maxSteeringAngle) car.steeringAngle = -car.maxSteeringAngle;
         
-        // Speed
         if (keys.ArrowUp) car.speed += car.acceleration; else if (keys.ArrowDown) car.speed -= car.acceleration; else car.speed *= car.friction;
         if (car.speed > car.maxSpeed) car.speed = car.maxSpeed; if (car.speed < -car.maxSpeed) car.speed = -car.maxSpeed; if (Math.abs(car.speed) < 0.02) car.speed = 0;
         
@@ -485,24 +479,20 @@
             let nextX = car.x + Math.cos(car.angle) * car.speed;
             let nextY = car.y + Math.sin(car.angle) * car.speed;
             
-            // 优化：边界检查 (Border Collision)
-            // 如果撞墙，速度清零，触发碰撞
+            // Border collision
             let hitBorder = false;
             if (nextX < 20 || nextX > canvas.width - 20 || nextY < 20 || nextY > canvas.height - 20) {
-                hitBorder = true;
-                car.speed = 0; // Stop
+                hitBorder = true; car.speed = 0;
             } else {
-                car.x = nextX;
-                car.y = nextY;
+                car.x = nextX; car.y = nextY;
             }
             
             car.angle += (car.speed * Math.tan(car.steeringAngle)) / car.wheelBase;
             
             let currentFrameCollision = false;
             for (let obj of objects) { if (checkCollision(car, obj)) { currentFrameCollision = true; break; } }
-            
             if (hitBorder) currentFrameCollision = true;
-
+            
             if (currentFrameCollision && !wasColliding) {
                 audioCrash.currentTime = 0;
                 audioCrash.play().catch(e => console.log('Crash play failed', e));
@@ -514,182 +504,156 @@
         }
     }
 
-    // --- TRON RENDERER ---
+    // --- RENDERER ---
 
     function drawStreamlinedBody(ctx, length, width, color) {
-        ctx.fillStyle = color;
-        const hw = length / 2; const hh = width / 2;
-        ctx.beginPath();
-        ctx.moveTo(-hw, -hh + 5); ctx.lineTo(-hw, hh - 5);
-        ctx.quadraticCurveTo(-hw, hh, -hw + 10, hh);
-        ctx.lineTo(hw - 15, hh);
-        ctx.quadraticCurveTo(hw, hh, hw, 0); 
-        ctx.quadraticCurveTo(hw, -hh, hw - 15, -hh); 
-        ctx.lineTo(-hw + 10, -hh);
-        ctx.quadraticCurveTo(-hw, -hh, -hw, -hh + 5);
-        ctx.fill();
-
-        let grad = ctx.createLinearGradient(-hw, -hh, -hw, hh);
-        grad.addColorStop(0, "rgba(255,255,255,0.4)");
-        grad.addColorStop(0.2, "rgba(255,255,255,0.1)");
-        grad.addColorStop(0.5, "rgba(0,0,0,0.1)");
-        grad.addColorStop(0.8, "rgba(0,0,0,0.3)");
-        ctx.fillStyle = grad; ctx.fill();
+        ctx.fillStyle = color; const hw = length / 2; const hh = width / 2;
+        ctx.beginPath(); ctx.moveTo(-hw, -hh + 5); ctx.lineTo(-hw, hh - 5); ctx.quadraticCurveTo(-hw, hh, -hw + 10, hh); ctx.lineTo(hw - 15, hh); ctx.quadraticCurveTo(hw, hh, hw, 0); ctx.quadraticCurveTo(hw, -hh, hw - 15, -hh); ctx.lineTo(-hw + 10, -hh); ctx.quadraticCurveTo(-hw, -hh, -hw, -hh + 5); ctx.fill();
+        let grad = ctx.createLinearGradient(-hw, -hh, -hw, hh); grad.addColorStop(0, "rgba(255,255,255,0.4)"); grad.addColorStop(0.2, "rgba(255,255,255,0.1)"); grad.addColorStop(0.5, "rgba(0,0,0,0.1)"); grad.addColorStop(0.8, "rgba(0,0,0,0.3)"); ctx.fillStyle = grad; ctx.fill();
     }
-
     function drawGlassRoof(ctx, length, width) {
-        ctx.fillStyle = "#000"; 
-        const hw = length / 2; const hh = width / 2; const insetY = 4;
+        ctx.fillStyle = "#000"; const hw = length / 2; const hh = width / 2; const insetY = 4;
         ctx.beginPath(); ctx.moveTo(hw - 25, -hh + insetY); ctx.lineTo(hw - 25, hh - insetY); ctx.lineTo(hw - 5, hh - 6); ctx.quadraticCurveTo(hw - 2, 0, hw - 5, -hh + 6); ctx.fill();
         ctx.beginPath(); ctx.roundRect(-hw + 15, -hh + 6, length - 55, width - 12, 4); ctx.fill();
     }
-
     function drawCar(obj, isPlayer) {
-        ctx.save();
-        ctx.translate(obj.x, obj.y);
-        ctx.rotate(obj.angle);
-
-        if (isPlayer && MODE === 'DRIVE') {
-            ctx.shadowColor = "#00F3FF"; 
-            ctx.shadowBlur = 40;
-        } else {
-            ctx.shadowColor = "rgba(0,0,0,0.8)";
-            ctx.shadowBlur = 10;
-        }
-
-        drawStreamlinedBody(ctx, obj.length, obj.width, obj.color);
-        ctx.shadowBlur = 0; 
-        
+        ctx.save(); ctx.translate(obj.x, obj.y); ctx.rotate(obj.angle);
+        if (isPlayer && MODE === 'DRIVE') { ctx.shadowColor = "#00F3FF"; ctx.shadowBlur = 40; } else { ctx.shadowColor = "rgba(0,0,0,0.8)"; ctx.shadowBlur = 10; }
+        drawStreamlinedBody(ctx, obj.length, obj.width, obj.color); ctx.shadowBlur = 0; 
         drawGlassRoof(ctx, obj.length, obj.width);
-
-        ctx.fillStyle = obj.color;
-        ctx.fillRect(obj.length/3.5, obj.width/2 - 2, 10, car.mirrorGap + 2);
-        ctx.fillRect(obj.length/3.5, -obj.width/2 - car.mirrorGap, 10, car.mirrorGap + 2);
-
-        ctx.shadowColor = "#FFF"; ctx.shadowBlur = 10;
-        ctx.fillStyle = "#FFF";
-        ctx.beginPath(); ctx.ellipse(obj.length/2 - 6, -obj.width/2 + 4, 6, 2, Math.PI/4, 0, 2*Math.PI); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(obj.length/2 - 6, obj.width/2 - 4, 6, 2, -Math.PI/4, 0, 2*Math.PI); ctx.fill();
-        ctx.shadowBlur = 0;
-
-        let tailColor = (isPlayer && keys.ArrowDown) ? "#FF003C" : "#500";
-        ctx.fillStyle = tailColor;
-        ctx.fillRect(-obj.length/2, -obj.width/2 + 2, 3, 12); ctx.fillRect(-obj.length/2, obj.width/2 - 14, 3, 12);
-
-        if (MODE === 'EDIT' && isDragging && dragTarget === obj) {
-            ctx.strokeStyle = "#00F3FF"; ctx.lineWidth = 2;
-            ctx.strokeRect(-obj.length/2 - 5, -obj.width/2 - 5, obj.length + 10, obj.width + 10);
-        }
+        ctx.fillStyle = obj.color; ctx.fillRect(obj.length/3.5, obj.width/2 - 2, 10, car.mirrorGap + 2); ctx.fillRect(obj.length/3.5, -obj.width/2 - car.mirrorGap, 10, car.mirrorGap + 2);
+        ctx.shadowColor = "#FFF"; ctx.shadowBlur = 10; ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.ellipse(obj.length/2 - 6, -obj.width/2 + 4, 6, 2, Math.PI/4, 0, 2*Math.PI); ctx.fill(); ctx.beginPath(); ctx.ellipse(obj.length/2 - 6, obj.width/2 - 4, 6, 2, -Math.PI/4, 0, 2*Math.PI); ctx.fill(); ctx.shadowBlur = 0;
+        let tailColor = (isPlayer && keys.ArrowDown) ? "#FF003C" : "#500"; ctx.fillStyle = tailColor; ctx.fillRect(-obj.length/2, -obj.width/2 + 2, 3, 12); ctx.fillRect(-obj.length/2, obj.width/2 - 14, 3, 12);
+        if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#00F3FF"; ctx.lineWidth = 2; ctx.strokeRect(-obj.length/2 - 5, -obj.width/2 - 5, obj.length + 10, obj.width + 10); }
         ctx.restore();
     }
-
     function drawSpot(obj) {
-        ctx.save(); ctx.translate(obj.x, obj.y);
-        ctx.shadowColor = "#00F3FF"; ctx.shadowBlur = 10;
-        ctx.strokeStyle = "rgba(0, 243, 255, 0.8)"; ctx.lineWidth = 2; 
-        ctx.fillStyle = "rgba(0, 243, 255, 0.05)";
-        ctx.beginPath(); ctx.rect(0, 0, obj.width, obj.height); ctx.fill(); ctx.stroke();
-        
-        ctx.fillStyle = "rgba(0, 243, 255, 0.8)"; ctx.font = "bold 28px 'Orbitron'"; 
-        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("P", obj.width/2, obj.height/2);
-        ctx.shadowBlur = 0;
-        
+        ctx.save(); ctx.translate(obj.x, obj.y); ctx.shadowColor = "#00F3FF"; ctx.shadowBlur = 10; ctx.strokeStyle = "rgba(0, 243, 255, 0.8)"; ctx.lineWidth = 2; ctx.fillStyle = "rgba(0, 243, 255, 0.05)"; ctx.beginPath(); ctx.rect(0, 0, obj.width, obj.height); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(0, 243, 255, 0.8)"; ctx.font = "bold 28px 'Orbitron'"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("P", obj.width/2, obj.height/2); ctx.shadowBlur = 0;
         if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#FFF"; ctx.strokeRect(-2,-2,obj.width+4,obj.height+4); }
         ctx.restore();
     }
-
-    // 优化：墙体改为银灰色
     function drawWall(obj) {
-        ctx.save(); ctx.translate(obj.x, obj.y); ctx.rotate(obj.angle);
-        const w = obj.width; const h = obj.height;
-        
-        // 银灰 + 青色边缘
-        ctx.shadowColor = "#AAA"; ctx.shadowBlur = 10;
-        ctx.strokeStyle = "#AAA"; ctx.lineWidth = 1;
-        ctx.fillStyle = "rgba(180, 180, 190, 0.3)"; // Silver
-        
-        ctx.fillRect(-w/2, -h/2, w, h);
-        ctx.strokeRect(-w/2, -h/2, w, h);
-        ctx.beginPath(); ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, 0); ctx.stroke();
-        
-        ctx.shadowBlur = 0;
+        ctx.save(); ctx.translate(obj.x, obj.y); ctx.rotate(obj.angle); const w = obj.width; const h = obj.height;
+        ctx.shadowColor = "#AAA"; ctx.shadowBlur = 10; ctx.strokeStyle = "#AAA"; ctx.lineWidth = 1; ctx.fillStyle = "rgba(180, 180, 190, 0.3)"; 
+        ctx.fillRect(-w/2, -h/2, w, h); ctx.strokeRect(-w/2, -h/2, w, h); ctx.beginPath(); ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, 0); ctx.stroke(); ctx.shadowBlur = 0;
         if (MODE === 'EDIT' && isDragging && dragTarget === obj) { ctx.strokeStyle = "#FFF"; ctx.strokeRect(-w/2-4, -h/2-4, w+8, h+8); }
         ctx.restore();
     }
     
-    // 优化：光流引导线 (填充式)
-    function drawPrediction(direction) {
+    // 优化的光流引导线 (Gradient + Gap Fix)
+    function drawPrediction() {
         if (MODE === 'EDIT') return; 
+        
+        let showFront = false;
+        let showBack = false;
+
+        // Input-based visibility
+        if (keys.ArrowUp) { showFront = true; }
+        else if (keys.ArrowDown) { showBack = true; }
+        else if (keys.ArrowLeft || keys.ArrowRight) { showFront = true; showBack = true; } // Show both when steering
+
+        if (!showFront && !showBack) return; // Hide if idle
+
         ctx.save(); 
         
-        let simX = car.x; let simY = car.y; let simAngle = car.angle; 
-        let safeWidth = car.width + (car.mirrorGap * 2);
-        
-        let leftPath = []; 
-        let rightPath = []; 
+        const directions = [];
+        if (showFront) directions.push(1);
+        if (showBack) directions.push(-1);
 
-        // 颜色统一为高亮白 (Quantum White)
-        let strokeColor = "rgba(255, 255, 255, 0.8)";
-        let fillColor = "rgba(255, 255, 255, 0.15)";
-        
-        // 计算轨迹点
-        for (let i = 0; i < 90; i++) {
-            let simSpeed = 2.5 * direction; 
-            simX += Math.cos(simAngle) * simSpeed; 
-            simY += Math.sin(simAngle) * simSpeed; 
-            simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
+        // 统一颜色: Quantum White
+        const ribbonColor = "255, 255, 255"; 
+
+        directions.forEach(direction => {
+            // Gap Fix: Start calculation from 0,0 relative to car
+            let simX = 0; let simY = 0; let simAngle = 0; 
+            let safeWidth = car.width + (car.mirrorGap * 2);
             
-            let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); 
-            let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
+            // Reduced steps to match car length (~50)
+            const STEPS = 50; 
             
-            leftPath.push({x: simX + offsetX, y: simY + offsetY}); 
-            rightPath.push({x: simX - offsetX, y: simY - offsetY});
-        }
+            let leftPath = []; 
+            let rightPath = []; 
 
-        // 绘制填充光带
-        ctx.beginPath();
-        ctx.moveTo(leftPath[0].x, leftPath[0].y);
-        for(let p of leftPath) ctx.lineTo(p.x, p.y);
-        for(let i = rightPath.length - 1; i >= 0; i--) ctx.lineTo(rightPath[i].x, rightPath[i].y);
-        ctx.closePath();
-        ctx.fillStyle = fillColor;
-        ctx.shadowColor = "#FFF"; ctx.shadowBlur = 20;
-        ctx.fill();
+            // Calculate path in local car space first
+            for (let i = 0; i < STEPS; i++) {
+                let simSpeed = 2.0 * direction; // Use current maxSpeed logic
+                simX += Math.cos(simAngle) * simSpeed; 
+                simY += Math.sin(simAngle) * simSpeed; 
+                simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
+                
+                let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); 
+                let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
+                
+                // Transform to world space
+                // But wait, the previous loop accumulated position. 
+                // Let's do it correctly: Accumulate position starting from car.x/y
+            }
+            
+            // Reset and do world space calc for gradient
+            simX = car.x; simY = car.y; simAngle = car.angle;
+            
+            for (let i = 0; i < STEPS; i++) {
+                // Determine opacity: 0.3 at start -> 0 at end
+                let alpha = 0.3 * (1 - i/STEPS);
+                
+                let simSpeed = 2.0 * direction; 
+                simX += Math.cos(simAngle) * simSpeed; 
+                simY += Math.sin(simAngle) * simSpeed; 
+                simAngle += (simSpeed * Math.tan(car.steeringAngle)) / car.wheelBase;
+                
+                let offsetX = Math.cos(simAngle - Math.PI/2) * (safeWidth/2); 
+                let offsetY = Math.sin(simAngle - Math.PI/2) * (safeWidth/2);
+                
+                leftPath.push({x: simX + offsetX, y: simY + offsetY}); 
+                rightPath.push({x: simX - offsetX, y: simY - offsetY});
+            }
 
-        // 绘制边缘线条
-        ctx.lineWidth = 2; 
-        ctx.strokeStyle = strokeColor;
-        ctx.shadowBlur = 0; // 线条本身不一定要太晕，保持锐利
-        
-        ctx.beginPath();
-        ctx.moveTo(leftPath[0].x, leftPath[0].y);
-        for(let p of leftPath) ctx.lineTo(p.x, p.y);
-        ctx.stroke();
+            // Draw Gradient Ribbon
+            // Since we can't easily gradient stroke a path, we simulate it by segmentation or mask.
+            // Or simpler: Create a linear gradient from Car center to the last point
+            let lastP = leftPath[leftPath.length-1];
+            let grad = ctx.createLinearGradient(car.x, car.y, lastP.x, lastP.y);
+            grad.addColorStop(0, `rgba(${ribbonColor}, 0.3)`);
+            grad.addColorStop(1, `rgba(${ribbonColor}, 0)`);
 
-        ctx.beginPath();
-        ctx.moveTo(rightPath[0].x, rightPath[0].y);
-        for(let p of rightPath) ctx.lineTo(p.x, p.y);
-        ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(leftPath[0].x, leftPath[0].y);
+            for(let p of leftPath) ctx.lineTo(p.x, p.y);
+            // Connect to right path (reverse)
+            for(let i = rightPath.length - 1; i >= 0; i--) ctx.lineTo(rightPath[i].x, rightPath[i].y);
+            ctx.closePath();
+            
+            ctx.fillStyle = grad;
+            ctx.shadowColor = `rgba(${ribbonColor}, 0.8)`; ctx.shadowBlur = 10;
+            ctx.fill();
+            
+            // Optional: Edge lines with same gradient
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(leftPath[0].x, leftPath[0].y); for(let p of leftPath) ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(rightPath[0].x, rightPath[0].y); for(let p of rightPath) ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+        });
 
         ctx.restore();
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 编辑模式网格
         if (MODE === 'EDIT') {
             ctx.save(); ctx.strokeStyle = "rgba(0, 243, 255, 0.1)"; ctx.lineWidth = 1; ctx.beginPath(); 
             for (let i = 0; i < canvas.width; i += SCALE * 2) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); } for (let i = 0; i < canvas.height; i += SCALE * 2) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); } 
             ctx.stroke(); ctx.restore();
         }
-
         for (let obj of objects) { if (obj.type === 'spot') drawSpot(obj); } 
         for (let obj of objects) { if (obj.type === 'wall') drawWall(obj); } 
         for (let obj of objects) { if (obj.type === 'obstacle_car') drawCar(obj, false); }
         
-        if (Math.abs(car.speed) < 1.0) { drawPrediction(1); drawPrediction(-1); } else { drawPrediction(car.speed > 0 ? 1 : -1); }
-        
+        drawPrediction(); // New Logic inside
         drawCar(car, true); 
         
         document.getElementById('speed').innerText = Math.abs(Math.round(car.speed * 10));
